@@ -6,6 +6,7 @@
 
 dir="$XDG_CONFIG_HOME/hypr/wallpapers/"
 default_wallpaper=""
+set_default_wallpaper=false
 reverse=false
 copy=false
 
@@ -17,6 +18,7 @@ while [[ $# -gt 0 ]]; do
 			;;
 		--default-wallpaper|-d)
 			default_wallpaper="$2"
+			set_default_wallpaper=true
 			shift 2
 			;;
 		--reverse|-r)
@@ -44,14 +46,18 @@ while [[ $# -gt 0 ]]; do
 	esac
 done
 
-if [[ -n "$default_wallpaper" ]] && [[ -f "$default_wallpaper" ]] && [[ "$default_wallpaper" =~ \.(png|jpe?g|gif)$ ]]; then
-	filename=$(/usr/bin/basename "$default_wallpaper")
-	if /usr/bin/swww query | grep -vq "$filename"; then
-		/usr/bin/swww img -t=none "$default_wallpaper"
+if $set_default_wallpaper; then
+	default_wallpaper="$(/usr/bin/fd -1atfile "$(/usr/bin/basename "$default_wallpaper")" "$dir")"
+	if [[ -n "$default_wallpaper" ]]; then
+		if /usr/bin/swww query | grep -vq "$default_wallpaper"; then
+			/usr/bin/swww img -t=none "$default_wallpaper"
+		else
+			echo "Default wallpaper already set."
+		fi
+		exit 0
 	else
-		echo "Default wallpaper already set."
+		exit 1
 	fi
-	exit 0
 fi
 
 images=($(/usr/bin/fd -at f -e png -e jpg -e jpeg -e gif . "$dir"))
@@ -86,7 +92,6 @@ rand_img() {
 monitors=($(/usr/bin/hyprctl monitors 2>/dev/null | /usr/bin/awk '/Monitor/ {print $2}' | /usr/bin/sort -r))
 len=${#monitors[@]}
 (( len == 0 )) && { echo "No monitors found."; exit 1; }
-
 
 if $copy; then
 	img="$(rand_img $INDEX $num_images)"
