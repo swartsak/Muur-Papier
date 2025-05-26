@@ -4,7 +4,7 @@
 /usr/bin/pgrep -x swww >/dev/null && { echo "swww is already running. Effort should not be duplicated."; exit 1; }
 /usr/bin/pgrep -x swww-daemon >/dev/null || { echo "swww-daemon not running. Cannot set wallpaper."; exit 1; }
 
-dir="$XDG_CONFIG_HOME/hypr/wallpapers/"
+dir="~/Projects/Muur-Papier/"
 default_wallpaper=""
 set_default_wallpaper=false
 reverse=false
@@ -60,7 +60,7 @@ if $set_default_wallpaper; then
 	fi
 fi
 
-images=($(/usr/bin/fd -at f -e png -e jpg -e jpeg -e gif . "$dir"))
+images=($(/usr/bin/fd -at f -e png -e gif . "$dir"))
 num_images=${#images[@]}
 (( num_images == 0 )) && { echo "No images found."; exit 1; }
 
