@@ -4,11 +4,12 @@
 /usr/bin/pgrep -x swww >/dev/null && { echo "swww is already running. Effort should not be duplicated."; exit 1; }
 /usr/bin/pgrep -x swww-daemon >/dev/null || { echo "swww-daemon not running. Cannot set wallpaper."; exit 1; }
 
-dir="~/Projects/Muur-Papier/"
+dir="$HOME/Projects/Muur-Papier/"
 default_wallpaper=""
 set_default_wallpaper=false
 reverse=false
 copy=false
+notify=0
 
 while [[ $# -gt 0 ]]; do 
 	case "$1" in
@@ -16,7 +17,12 @@ while [[ $# -gt 0 ]]; do
 			dir="$2"
 			shift 2
 			;;
+		--notify|-n)
+			notify=1
+			shift 1
+			;;
 		--default-wallpaper|-d)
+			echo "default $2"
 			default_wallpaper="$2"
 			set_default_wallpaper=true
 			shift 2
@@ -36,6 +42,7 @@ while [[ $# -gt 0 ]]; do
 			echo "	--default-wallpaper -d | Specify the default wallpaper to use (must be in wallpaper-dir)."
 			echo "	--reverse           -r | Reverse the order of the wallpaper cycling."
 			echo "	--copy              -c | Copy the same image across each window."
+			echo "	--notify            -n | Send a notification when the wallpaper is changed."
 			exit 0
 			;;
 		*)
@@ -60,7 +67,7 @@ if $set_default_wallpaper; then
 	fi
 fi
 
-images=($(/usr/bin/fd -at f -e png -e gif . "$dir"))
+images=($(/usr/bin/fd -at f -e jpg -e gif . "$dir"))
 num_images=${#images[@]}
 (( num_images == 0 )) && { echo "No images found."; exit 1; }
 
@@ -89,20 +96,26 @@ rand_img() {
 	echo "${images[index % len]}"
 }
 
+notif() {
+	# 1 = icon 2 = display
+	notify-send --urgency=low --expire-time=1000 --icon="$1" "($2) Wallpaper changed successfully"
+}
+
 monitors=($(/usr/bin/hyprctl monitors 2>/dev/null | /usr/bin/awk '/Monitor/ {print $2}' | /usr/bin/sort -r))
 len=${#monitors[@]}
 (( len == 0 )) && { echo "No monitors found."; exit 1; }
 
 if $copy; then
 	img="$(rand_img $INDEX $num_images)"
-	for ((i = 0; i < len; i++));do
-		/usr/bin/swww img -t=none --outputs="${monitors[i]}" "$img" &
-	done
+	monitor_string=$(IFS=, ; echo "${monitors[*]}")
+	/usr/bin/swww img -t=none --outputs="$monitor_string" "$img" && \
+		[ $notify -eq 1 ] && notif "$img" "$monitor_string" &
 else
 	for ((i = 0; i < len; i++));do
 		idx=$((INDEX+i))
 		img="$(rand_img $idx $num_images)"
-		/usr/bin/swww img -t=none --outputs="${monitors[i]}" "$img" &
+		/usr/bin/swww img -t=none --outputs="${monitors[i]}" "$img" && \
+			[ $notify -eq 1 ] && notif "$img" "${monitors[i]}" &
 	done
 fi
 

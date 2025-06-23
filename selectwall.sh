@@ -7,14 +7,19 @@ monitors=($(/usr/bin/hyprctl monitors 2>/dev/null | /usr/bin/awk '/Monitor/ {pri
 len=${#monitors[@]}
 (( len == 0 )) && { echo "No monitors found."; exit 1; }
 
-dir="~/Projects/Muur-Papier/"
+dir="$HOME/Projects/Muur-Papier/"
 copy=false
+notify=0
 
 while [[ $# -gt 0 ]]; do 
 	case "$1" in
 		--wallpaper-dir|-w)
 			dir="$2"
 			shift 2
+			;;
+		--notify|-n)
+			notify=1
+			shift 1
 			;;
 		--copy|-c)
 			copy=true
@@ -36,17 +41,31 @@ while [[ $# -gt 0 ]]; do
 	esac
 done
 
-images="$(/usr/bin/fd -at f -e png -e jpg -e jpeg -e gif . "$dir")"
+notif() {
+	# 1 = icon 2 = display
+	notify-send --urgency=low --expire-time=1000 --icon="$1" "($2) Wallpaper changed successfully"
+}
+
+images="$(/usr/bin/fd -at f -e jpg -e gif . "$dir")"
 
 if $copy; then
 	img=$(echo "$images" | ~/.config/hypr/wofi.sh --dmenu)
-	for ((i = 0; i < len; i++)); do
-		/usr/bin/swww img -t=none --outputs="${monitors[i]}" "$img" &
-	done
+	if [ -z "$img" ]; then
+		exit 1
+	fi
+	echo "Using: $img"
+	monitor_string=$(IFS=, ; echo "${monitors[*]}")
+	/usr/bin/swww img -t=none --outputs="$monitor_string" "$img" && \
+		[ $notify -eq 1 ] && notif "$img" "$monitor_string" &
 else
 	for ((i = 0; i < len; i++)); do
 		img=$(echo "$images" | ~/.config/hypr/wofi.sh --dmenu --prompt="For monitor ${monitors[i]}")
-		/usr/bin/swww img -t=none --outputs="${monitors[i]}" "$img" &
+		if [ -z "$img" ]; then
+			exit 1
+		fi
+		echo "Using: $img"
+		/usr/bin/swww img -t=none --outputs="${monitors[i]}" "$img" && \
+			[ $notify -eq 1 ] && notif "$img" "${monitors[i]}" &
 	done
 fi
 
